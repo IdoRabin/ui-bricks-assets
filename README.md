@@ -1,3 +1,3 @@
 **Bricks Project Assets**
 
-Repo for design and UI/Ux items for the Bricks project
+Repo for design and UX/UI items for the Bricks project
