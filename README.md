@@ -1,41 +1,40 @@
-# Bricks assets
+# Bricks []
 
-Repo for all used assets in the bricks project.
+Repo for <TODO>
 
 ## Description
 
-The assets are for UX/UI design, website and social media
+this repo does <TODO>
 
 ## Getting Started
 
+Ue this repo like so: <TODO>
+
 ### Dependencies
 
-* Some files in PSD format
+Naturally, we use and depend on
+<TODO>
 
 ### Installing
 
-Currently copied into other repos when needed
+To use this project you can use:
+<TODO>
 
 ## Help
 
-No real need for help.
-```
-open images as needed
-```
+<TODO> links and texts for help
 
 ## Authors
 
 Contributors names and contact info
 
-ex. Ido Rabin [mail] idoRabin@gmail.com
+[TODO future]
+Ido Rabin [email]idoRabin@gmail.com
 
 ## Version History
 
-* 0.2
-    * Project revision and new assets
-* 0.1
-    * Old assets
+<TODO>
 
 ## License
 
-This project is licensed under the [MIT] License - see the LICENSE.md file for details
+This project is licensed under the [GNU GENERAL PUBLIC LICENSE Version 3]https://www.gnu.org/licenses/gpl-3.0.en.html#license-text License - see the LICENSE.md file for details
