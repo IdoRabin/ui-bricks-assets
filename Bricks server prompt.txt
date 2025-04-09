@@ -1,0 +1,299 @@
+= Technologies used  / Stack =
+
+Swift language 6.0 and above
+Swift NIO
+Swift ResultBuilder (if and when neccesary)
+Swift Macros (if and when neccesary)
+Hummingbird 2.0
+ - Hummingbird router
+ - Hummingbird jwt auth
+ - Hummingbird fluent postgres
+Postgres db / server
+RESTful APIs architecture concepts
+JSON
+protobuf
+python script/s for pre-build operations for the swift project
+for the web pages we will be using:
+ - shadcn for ui components
+ - HTML
+ - CSS
+ - JavaScript
+
+= App =
+The app package, xcode or vscode project will be named "Bricks" and its derivatives used for the various global parts of the code in a reasonable manner. The whole app's purpose is to simplify the planning of systems architectures. The app should have a few front ends (routing):
+The app, webpages and API should have a version, expressed also in the routing (v1, v2 etc..).
+
+The main sections of the app are:
+1. An end user webApp that is a one-page IDE, UI-rich, with a user session management system.
+2. An API for full management of the IDE / UI for given projects from the backend.
+3. A backend for system admins - allowing full control of the server, backed by an API.
+4. A backend for "org" admins - allowing control only of users and project within a given organization. Backed by an API as well.
+
+Common terminology in this document and codebase:
+server - the whole system running on a simgle machine (computer)
+app - a specific intance of the app, used to difrentiate (if an when) a few instances run on the same macine.
+system - the whole system's backend web pages to manage the whole system
+org - the backend web pages to manage a single organization (org)
+proj - the frontend / client web pages to manage a project's users and invitation links, privileges and more.
+user - the web pages to manage a single user
+ide - the frontend / client webapp to view or edit a single project.
+priv - privilege (access or use privilege afforded to a user)
+
+An App data model should contain:
+- uuid (persists on the machine)
+- display name (persists on the machine)
+- dictionary of domains and sub-domains belonging to this machine, and for each one - an associated "org" that "owns" that domain / subdomain.
+Should be codable for JSON and protobuf formats.
+
+The build's run arguments and environment variable should contain:
+ip
+port
+dbUser
+dbPwd
+dbConnectionStr
+
+= Org =
+The server should have its data seperated into "orgs" (organizations) - each representing a company, corporation or any hierarchical group of people. The "orgs" shall have total data separation from each other (i.e no cross-referencing and db table linkages between orgs). The rationale behind this is that this will allow seperation to discreet server machines / databases, or even allow on-premise hosting for some orgs. Nontheless, we need to be able to runn multiple domains on one server and one database. We just need the tools and architecture to easily move a given domain's data in its entirity to another server.
+A server app should start with an initial "default" org (named "default") which has one domain and no sub-domains. The routing to this default org should not require an explicit "default" part in the route. (that is, if an org is not explictly part of the route, the "default" org is assumed)
+
+Each org data model should contain:
+1. orgId: a uuid
+2. displayName: a display name for the org
+3. logoUrl: url to a locally stored logo image
+4. logoUrl: url to an external log image / gravatar or a similar service.
+Should be codable for JSON and protobuf formats.
+5. orgState: see below
+6. domains: (optional) array of string
+6. subdomains: (optional) array of string
+Should be codable for JSON and protobuf formats.
+
+= OrgState =
+enum describing the current state of an org:
+    - active
+    - readOnly (no edit or delete of any data - org, proj or user is allowed)
+    - disabled (no logins allowed)
+    - deleted (ignored by db queries)
+Should be codable for JSON and protobuf formats.
+
+= User =
+Each Bricks user should contain:
+1. userId: uuid
+2. loginName: string
+3. displayName: a display name. (if empty, the loginname is the display name)
+4. userStateRecord - a record descibing the current and future states of the user, see below)
+5. userState - convenience getter for the userStateRecord.curState field, see below)
+4. imageUrl - url to a locally stored avatar image
+5. avatarUrl - to gravatar or a similar service
+6. createdDate - creation time Timestamp
+7. lastUsed - last used Timestamp
+8. userInfo - more detailed user info (wrapper for a vCard, see below).
+9. userSettings - global user settings (for use by the Bricks IDE UI / web App, see below).
+10. userProjSettings - a dictionary of "userProjSettings" by projectId, for allowing the user to customize and persist how they want to see, use and how they left each project they accessed.
+11. seperate "userSession" records (for user session management) - see below
+Should be codable for JSON and protobuf formats.
+
+= userState =
+an enum for possible user states:
+    - registering
+      The user started a registration, but has not finished, or required to submit additional pre-use info. Has only registration privilege.
+
+    - active 
+      The user is active, and has all the privileges the roles they have allow
+
+    - readOnly
+      The user may login and access all previous systems according to the user priviliges and roles, but may only view the elements they should have been able to edit (this overrides all RBAC privileges). May not export data from projects or the system. The user may only view their own user record.
+
+    - disabled
+      Account is Frozen. The user may login but cannot access any of the previous systems, except the post-login landing page. (IDE access and IDE use privileges are blocked)
+
+    - trialEnded (equal to readOnly state):
+      The user's "Trial" period has ended and now they can only view / read data, not change anything.
+
+    - banned
+      The user may not login, and may not use any of the privileges (was blacklisted)
+
+    - deleted:
+      The user may not login, and may not use any of the privileges, and also ignored by DB queries.
+
+= userStateRecord = 
+a model descibing the current and future states of the user: (different db table / model than user)
+ - userUuid: user uuid this record describes
+ - curState: the current userState.
+ - curStateInstator: the uuid of the user who has approved or triggered this latest state change.
+ - startDate: Timestamp, the start date of the current user state (sort order by this field)
+ - expiryDate: (optional) timestam, the time in which the current state of the user will "expire"
+ - expireToState: the userState into which the user should be changed to if and when the expiry date is surpassed.
+ - expiryMethod: (enum: auto / menual) - how the system should handle an expired user state - when in auto mode, the user state may be changed to the expireToState imediatly by the system. When manual, no action is taken (in the future, a sysAdmin or orgAdmin will get a list of manual state changes to handle)
+
+ This record is stored as a seperate data model (db table) and has a one-to-one relationship with each user.
+ When the state changes, the record is saved a userStateHistory record:
+ 
+= userStateHistoryRecord =
+is an extension, or subclass or subset of the userstate record. (different db table / model than user)
+additional fieldds to the userStateRecord:
+- archiveDate: Timestamp for the time where the state was being converted to a userStateHistoryRecord and moved to the history table.
+
+= userInfo = (different db table / model than user)
+Should contain a vCard, and allow to easily CRUD all data fields allowed in a vCard. (see RFC 7095 and https://en.wikipedia.org/wiki/VCard),
+should be easily codable to vCard, jCard and protobuf fromats.
+
+= userSettings = (different db table / model than user)
+userSettings should contain:
+ 1. Latest TimeZone (ISO 8601)
+ 2. Main and secondary languages (ISO 639-1:2002)
+ 3. Preferred date format (a string such as "dd/MM/yy" etc.)
+ 4. Preferred time format (a string suc as "HH:mm:ss.zzz" etc..)
+ 5. metric / emperial system
+ 6. notifications enabled bool
+ 7. email enabled bool
+ 8. EULA accepted bool
+Should be codable for JSON and protobuf formats.
+
+= userProjSettings = (different db table / model than user)
+userProjSettings should contain:
+ 1. main window size ( "ddddd x dddd" string )
+ 2. left panel width float (<=0 is closed, >0 is the width)
+ 3. left panel selected tab - enum of possoble tabs (projects / project tree / debug / users list tabs)
+ 3. right panel width float (<=0 is closed, >0 is the width)
+ 4. right panel selected tab - enum of possoble tabs (properties / info / colors tabs)
+ 4. bottom panel height float (<=0 is closed, >0 is the width)
+Should be codable for JSON and protobuf formats.
+
+= userSessionState =
+active
+disabled (session is not "respected" as active, and user may login, but not use any other system)
+loggedOutByUser
+loggedOutByOrgAdmin
+loggedOutBySysAdmin
+loggedOutByBotOnTimeout
+
+= userSession = (different db table / model than user)
+Describes a single user session.
+A session that has expired is moved to a "sessionHistory" table for record keeping.
+A user may have up to 4 "active" userSessions at one time - corresponding to the devices logged in.
+userSession should contain:
+1. sessionId: session uuid
+2. sessionDeviceType: string, session device type
+3. sessionDeviceId: (optional) string, session device id 
+3. userId: user uuid
+4. projId: project uuid
+5. userSessionState (see above)
+6. loginId - an id to the record of a login event
+7. login Timestamp
+8.(Optional)session termination reason enum: closed / timed out / kicked out
+9. session termination Timestamp
+10. credentials - a web token (jwt) or any other info that allow the client end to maintain and rejoin a session, and allows the server to verify the client session's validiti.
+11. session token expiry date and time
+Should be codable for JSON and protobuf formats, and the uuid + token should be compatible with JWT session token.
+
+= Invitations =
+The server may create and save generated short url links to invite external persons to join an org or a project.
+The invitations should be a short and concise url starting in the first domain + subdomain (if exists) for that org, the rest of the url may be base64 minimum-sized, uniquely issued string. (see techniques of bit.ly and similars).
+
+An invitation link record should contain:
+   - inviteID: uuid of the invite
+   - inviteURL: the created invitation url (indexed for fast searches)
+   - invitingUserId: uuid of the inviting user
+   - inviteOrgId: uuid of the org the invitee/s are invited to join
+   - createdDate: Timestamp of original initation issuing date
+   - inviteProjIds: (optional) uuids for the project/s the invitee/s are invited to. Only these projects will be visible to the accepting invitee.
+   - inviteSysRoles: (optional) system roles to bestow on the invitee in the context of the org (must be equal or lower than the inviter at the time of opening the link)
+   - inviteOrgRoles: (optional) roles by project id to bestow on an invitee in the context of the project (must be equal or lower than the inviter - also in the project context)
+   - inviteExpirationDate: (optional) expiration date for the invite. After this date the invite is invalid and cannot be followed / used.
+   - intivedAmount: (optional) int amount of expected users. (0-128)
+   - intivedCompletedAmount: (optional) int amount of users that have finished the invite flow. (0-128)
+   - (optional) expire-after-registration will expire the link immediatly after the intivedAmount amount of expected users has completed the invite flow.
+If needed, the system should manage an incremental counter to be used as a "seed" for the invite url. (see bi.ly url creation)
+
+= Access and Privileges management =
+The priviliages management system should be built using the main principles of RBAC architecture. Yet, for each role we should have a concise, 
+single source-of-truth of hard-coded, easy to read (and change) set of privileges, those will be actually tested when accessing a system service / action / API endpoint and determining if the user may execute it or not.
+
+= UserRole =
+Describes various user roles in the system, each role has a single defined set of privileges (privs)
+Below is the UserRole enum:
+    - sysAdmin
+    - sysBot
+    - sysEditor
+    - sysViewer
+    - orgAdmin
+    - orgEditor
+    - orgViewer
+    - projOwner
+    - projAdmin
+    - projEditor
+    - projViewer
+
+= Priv = 
+Describes user privileges for use and access of the various system aspects:
+Priv enum:
+
+    - login - may log in (user state should also be appropriate)
+    - bootApps - may boot machines / instances / apps
+    - shutdownApps - may terminate or shutdown machines / instances / apps
+    - sysBackendAccess - may access and view the system backend (system)
+    - sysBackendEdit - may edit in the system backend (system)
+    - sysExecBotJob - may execute "jobs" or tasks meant for Bots.
+
+    - orgList - may request / view list of orgs (system)
+    - orgCreate - may create orgs (system)
+    - orgEdit - may edit some org info in the system backend (system)
+    - orgDelete - may delete orgs (system)
+    - orgBackEndAccess - may access and view the org backend (org)
+    - orgEditInOrgBackend - may edit some org fields in the org backend (org)
+
+    - projList - may request / view list of projs in a given org (org)
+    - projCreate - may create projs (org)
+    - projDelete- may delete projs (org)
+    - projInfoView - may view the proj info in the org backend (org)
+    - projInfoEdit - may edit the proj info in the org backend (org)
+
+    - projIDEViewAccess - may acess and view the proj in the IDE webapp (ide)
+    - projIDEEditAccess - may access, view and edit the proj in the IDE webapp (ide)
+
+    - sysInviter - may issue system invite urls
+    - orgInviter - may issue org invite urls
+    - projInviter - may issue poject invite urls
+
+
+Role-privilege rules:
+should be hard coded funcs of Role->[Priv]
+
+  - system admin - does not require a per-project assignment.
+  - org admin    - does not require a per-project assignment. May edit all info for users in the org, and send invitation links to projects.
+  - proj owner.  - a user creating a project automatically receives this role for the context of projects they create. May send invitation links to the project. May change users roles only in the context of the current project, only for users of this org.
+  - proj admin.  - may recieve this privilege from proj owner, org admin, or system admin in the context of a specific project. May change users roles only in the context of the current project, only for users of this org. May send invitation links to the project.
+  - proj editor (cannot delete project) - may recieve this privilege from proj owner, org admin, or system admin in the context of a specific project. May send only viewing invitation links to the project, with same or narrower scope of visibility.
+  - proj viewer  - may recieve this privilege from proj owner, org admin, or system admin in the context of a specific project. May not send any invitation to a project.
+
+  - a system admin may issue invitations to join an org. (in contrast to an invite to a specific project)
+  - an org admin may issue invitations to join an org. (in contrast to an invite to a specific project)
+
+  For each role there may be additional info to allow accessing / viewing / or editing specific parts of an org or an
+For each of the above roles, there is a set of privileges that each role affords:
+Each privilege has a "filter" with four states:
+rolePrivilegeFilter:
+- allowed (all)
+- include (array of uuids):
+- exclude (array of uuids):
+- prohibited
+
+
+The system should be initialized if the condition of 0 existing users on launch to the following:
+   1. one user named "sysadmin" with the sysAdmin role.
+   2. one user named "bot" with the sysBot role.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
